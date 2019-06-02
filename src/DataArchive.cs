@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace Frickr
 {
+    /// Extract contents of a data-download-#.zip file
     internal partial class DataArchive : IDisposable
     {
         private static readonly Regex IdPattern

@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Frickr
 {
+    /// Extract data from a ###_###_part#.zip metadata file
     internal partial class IndexArchive : IDisposable
     {
         private readonly ZipArchive zip;

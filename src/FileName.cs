@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Frickr
 {
-
+    /// Encodes most text into valid file name 
     internal static class FileName
     {
         private const string Replacement = "_";

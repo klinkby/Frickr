@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 
 namespace Frickr
 {
+    /// Extensions for streams
     internal static class StreamExtensions
     {
         public static object DeserializeJson(this Stream stream)

@@ -5,6 +5,7 @@ using System.Linq;
 
 namespace Frickr
 {
+    /// Entry point
     static class Program
     {
         private const string Uncategorized = "Uncategorized";
@@ -14,7 +15,7 @@ namespace Frickr
         {
             if (2 != args.Length)
             {
-                Console.Error.WriteLine("Usage: frickr.exe <source-dir> <target-dir>");
+                Console.Error.WriteLine("Usage: dotnet run <source-dir> <target-dir>");
                 return 1;
             }
             var sourceDir = args[0];

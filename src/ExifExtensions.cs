@@ -3,6 +3,7 @@ using ExifLibrary;
 
 namespace Frickr
 {
+    /// Extensions for EXIF tagging
     internal static class ExifExtensions
     {
         public static void AddOrUpdate(this ExifPropertyCollection props, ExifTag tag, string value)

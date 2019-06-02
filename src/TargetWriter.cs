@@ -3,6 +3,7 @@ using ExifLibrary;
 
 namespace Frickr
 {
+    /// Serialize target photo or movie file
     internal static class TargetWriter
     {
         private const string MovieExtension = ".mov";

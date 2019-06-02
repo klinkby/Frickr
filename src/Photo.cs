@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Frickr
 {
+    /// Photo metadata DTO
     internal class Photo
     {
         private static readonly Regex ExtPattern

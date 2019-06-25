@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -9,10 +10,11 @@ namespace Frickr
     static class Program
     {
         private const string Uncategorized = "Uncategorized";
-        readonly static ConsoleColor DefaultColor = Console.ForegroundColor;
+        internal static ConsoleColor DefaultColor;
 
         public static int Main(string[] args)
         {
+            DefaultColor = Console.ForegroundColor;
             if (2 != args.Length)
             {
                 Console.Error.WriteLine("Usage: dotnet run <source-dir> <target-dir>");
@@ -26,13 +28,15 @@ namespace Frickr
 
         private static void Run(string sourceDir, string targetDir)
         {
+            var sw = Stopwatch.StartNew();
             var albumPhotos = GetPhotos(sourceDir);
             var albumNames
                 = albumPhotos.Values
                              .Select(x => x.AlbumName)
                              .Distinct();
             var albumPathMap = CreateAlbums(targetDir, albumNames);
-            IteratePhotos(sourceDir, albumPhotos, albumPathMap);
+            int count = IteratePhotos(sourceDir, albumPhotos, albumPathMap);
+            Console.WriteLine(Environment.NewLine + $"Transmogriffed {albumPhotos.Count} media into {albumPathMap.Count} albums in {sw.Elapsed.TotalSeconds}s");
         }
 
         private static IDictionary<string, (string AlbumName, Photo Photo)> GetPhotos(string sourceDir)
@@ -81,39 +85,73 @@ namespace Frickr
             return map;
         }
 
-        private static void IteratePhotos(
+        private static int IteratePhotos(
             string sourceDir,
             IDictionary<string, (string AlbumName, Photo Photo)> albumPhotos,
             IDictionary<string, string> albumPathMap)
         {
-            var imageArchivePaths = Directory.GetFiles(sourceDir, "data-download-*.zip");
-            foreach (var path in imageArchivePaths)
+            var tempTargetPath = Path.GetTempFileName();
+            try
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine(Path.GetFileName(path));
-                Console.ForegroundColor = DefaultColor;
-                using (var dataStream = File.OpenRead(path))
-                using (var dataArchive = new DataArchive(dataStream))
+                int i = 0;
+                var imageArchivePaths = Directory.GetFiles(sourceDir, "data-download-*.zip");
+                foreach (var path in imageArchivePaths)
                 {
-                    foreach (var file in dataArchive.Files)
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine(Path.GetFileName(path));
+                    Console.ForegroundColor = DefaultColor;
+                    using (var dataStream = File.OpenRead(path))
+                    using (var dataArchive = new DataArchive(dataStream))
                     {
-                        if (!albumPhotos.ContainsKey(file.Id))
+                        foreach (var file in dataArchive.Files)
                         {
-                            Console.Error.WriteLine($"No metadata for photo {file.Id}");
-                            continue;
+                            if (!albumPhotos.ContainsKey(file.Id))
+                            {
+                                Console.Error.WriteLine($"No metadata for photo {file.Id}");
+                                continue;
+                            }
+                            var albumPhoto = albumPhotos[file.Id];
+                            var albumPath = albumPathMap[albumPhoto.AlbumName ?? ""];
+                            var fileName = FileName.Encode(albumPhoto.Photo.Name) + albumPhoto.Photo.Extension;
+                            dataArchive.WithEntry(
+                                file.Name,
+                                s => TargetWriter.Write((tempTargetPath, albumPhoto.AlbumName, albumPhoto.Photo, s)));
+                            i++;
+                            var targetPath = Path.Combine(albumPath, fileName);
+                            if (File.Exists(targetPath))
+                            {
+                                if (AreSame(tempTargetPath, albumPath, fileName, targetPath)) continue;
+                                fileName = $"{Path.GetFileNameWithoutExtension(fileName)} ({file.Id}){Path.GetExtension(fileName)}";
+                                targetPath = Path.Combine(albumPath, fileName);
+                                if (File.Exists(targetPath) && AreSame(tempTargetPath, albumPath, fileName, targetPath)) continue;
+                            }
+                            Console.Write($" > {Path.GetFileName(albumPath)}/{fileName}");
+                            File.Move(tempTargetPath, targetPath);
+                            Console.WriteLine();
                         }
-                        var albumPhoto = albumPhotos[file.Id];
-                        var albumPath = albumPathMap[albumPhoto.AlbumName ?? ""];
-                        var fileName = FileName.Encode(albumPhoto.Photo.Name) + albumPhoto.Photo.Extension;
-                        var targetPath = Path.Combine(albumPath, fileName);
-                        dataArchive.WithEntry(
-                            file.Name,
-                            s => TargetWriter.Write((targetPath, albumPhoto.AlbumName, albumPhoto.Photo, s)));
-                        Console.WriteLine($" > {Path.GetFileName(albumPath)}/{fileName}");
                     }
                 }
-                Console.WriteLine();
+                return i;
             }
+            finally
+            {
+                File.Delete(tempTargetPath);
+            }
+        }
+
+        private static bool AreSame(string tempTargetPath, string albumPath, string fileName, string targetPath)
+        {
+            using (var fOld = File.OpenRead(targetPath))
+            using (var fNew = File.OpenRead(tempTargetPath))
+            {
+                if (fOld.Length == fNew.Length) // TODO CRC
+                {
+                    Console.Write($" > {Path.GetFileName(albumPath)}/{fileName}");
+                    Console.WriteLine(" (already exists)");
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Linq;
 using ExifLibrary;
 
 namespace Frickr
@@ -6,35 +8,55 @@ namespace Frickr
     /// Serialize target photo or movie file
     internal static class TargetWriter
     {
-        private const string MovieExtension = ".mov";
+        private const string MovExtension = ".mov";
+        private const string Mp4Extension = ".mp4";
 
         public static void Write((string TargetPath, string AlbumName, Photo Photo, Stream Stream) x)
         {
-            switch(x.Photo.Extension.ToLowerInvariant())
+            using (var source = new MemoryStream())
             {
-                case MovieExtension:
-                    WriteVideo(x);
-                    break;
-                default:
+                x.Stream.CopyTo(source);
+                source.Seek(0, SeekOrigin.Begin);
+                x.Stream = source;
+                try
+                {
                     WritePhoto(x);
-                    break;
+                }
+                catch (NotValidImageFileException)
+                {
+                    source.Seek(0, SeekOrigin.Begin);
+                    WriteRaw(x);
+                }
+                catch (Exception e)
+                {
+                    source.Seek(0, SeekOrigin.Begin);
+                    WriteRaw(x);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($" *{e.GetType().Name}*");
+                    Console.ForegroundColor = Program.DefaultColor;
+                }
             }
         }
 
         private static void WritePhoto((string TargetPath, string AlbumName, Photo Photo, Stream Stream) x)
         {
-            ImageFile imageFile;
-            using (var source = new MemoryStream())
-            {
-                x.Stream.CopyTo(source);
-                imageFile = ImageFile.FromStream(source);
-            }
+            ImageFile imageFile = ImageFile.FromStream(x.Stream);
             var props = imageFile.Properties;
+            SanitizeProperties(props);
             SetProperties(props, x.AlbumName, x.Photo);
             imageFile.Save(x.TargetPath);
         }
 
-        private static void WriteVideo((string TargetPath, string AlbumName, Photo Photo, Stream Stream) x)
+        private static void SanitizeProperties(ExifPropertyCollection props)
+        {
+            var duplicate  = props.GroupBy(x => x.Tag).Select(x => x.Skip(1));
+            foreach(var d in duplicate.SelectMany(x => x).ToArray())
+            {
+                props.Remove(d);
+            }
+        }
+
+        private static void WriteRaw((string TargetPath, string AlbumName, Photo Photo, Stream Stream) x)
         {
             using (var target = File.OpenWrite(x.TargetPath))
             {
@@ -50,11 +72,7 @@ namespace Frickr
             props.AddOrUpdate(ExifTag.WindowsSubject, p.Description);
             props.AddOrUpdate(ExifTag.WindowsComment, p.Privacy.ToString());
             props.AddOrUpdate(ExifTag.WindowsTitle, p.Name);
-            props.AddOrUpdate(ExifTag.WindowsKeywords, albumName);
-            foreach (var tag in p.Tags)
-            {
-                props.Add(ExifTag.WindowsKeywords, tag);
-            }
+            props.AddOrUpdate(ExifTag.WindowsKeywords, string.Join("; ", p.Tags.Concat(new [] { albumName })));
         }
     }
 }

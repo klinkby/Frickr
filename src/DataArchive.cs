@@ -10,8 +10,16 @@ namespace Frickr
     /// Extract contents of a data-download-#.zip file
     internal partial class DataArchive : IDisposable
     {
+        /*
+        Match id from
+        7176952817_91ac1d3d90_o.jpg
+        manfred-p-eventyr_5189977344_o.jpg
+        vid_20120906_1417051_7943051628.mp4
+        d-fr-bning-_45804173955_o.jpg
+        20141119_141647_16343358551_o.jpg
+        */
         private static readonly Regex IdPattern
-            = new Regex(@"_(?<id>\d+)(?:_o)?(?:\.\w{3})$",
+            = new Regex(@"^((?<id>\d{7,})(?:_[a-z\d]+))|((?:[\w_-]+?)_(?<id>\d{7,}))(?:(_o)?.\w{3})$",
                 RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 
         private static string ParseIdFromFileName(string fileName)

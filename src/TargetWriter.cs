@@ -66,10 +66,11 @@ namespace Frickr
 
         private static void SetProperties(ExifPropertyCollection props, string albumName, Photo p)
         {
+            var desc = string.IsNullOrEmpty(p.Description) ? p.Name : p.Description;
             // https://www.exiv2.org/tags.html
             props.AddOrUpdate(ExifTag.ImageUniqueID, p.Id);
-            props.AddOrUpdate(ExifTag.ImageDescription, p.Description);
-            props.AddOrUpdate(ExifTag.WindowsSubject, p.Description);
+            props.AddOrUpdate(ExifTag.ImageDescription, desc);
+            props.AddOrUpdate(ExifTag.WindowsSubject, desc);
             props.AddOrUpdate(ExifTag.WindowsComment, p.Privacy.ToString());
             props.AddOrUpdate(ExifTag.WindowsTitle, p.Name);
             props.AddOrUpdate(ExifTag.WindowsKeywords, string.Join("; ", p.Tags.Concat(new [] { albumName })));
